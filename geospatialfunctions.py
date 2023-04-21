@@ -27,7 +27,9 @@ warnings.simplefilter(action='ignore', category=Warning)
 # This function is used for generating a quick map plot with the desired points 
 # and a background map in background.
 
-def plotpoints(plotsome: pd.pandas.core.frame.DataFrame, crsproj = 'epsg:4326', showcodes = False, figsizeproj = (15, 30)):
+def plotpointsmap(plotsome: pd.pandas.core.frame.DataFrame, crsproj = 'epsg:4326', backmapproj = True,
+               showcodes = False, figsizeproj = (15, 30), markersize_map = 3, north_arrow = True, set_map_limits = False,
+                 minx = 0, miny = 0, maxx = 1, maxy = 1):
     """
     Inputs
     ------------------
@@ -44,39 +46,82 @@ def plotpoints(plotsome: pd.pandas.core.frame.DataFrame, crsproj = 'epsg:4326', 
     A background map can be also shown if your coordinate system "crsproj" is set to 'epsg:4326'.
         
     """    
+    if backmapproj == True:
+        
+        crs={'init':crsproj}
+        geometry=[Point(xy) for xy in zip(plotsome.iloc[:,0], plotsome.iloc[:,1])]
+        geodata=gpd.GeoDataFrame(plotsome,crs=crs, geometry=geometry)
+        geodatacond = geodata
+
+        # The conversiojn is needed due to the projection of the basemap:
+        geodatacond = geodatacond.to_crs(epsg=3857)
+
+        # Plot the figure and set size:
+        fig, ax = plt.subplots(figsize = figsizeproj)
+
+        #Ploting:
+        #geodatacond.plot(ax=ax, column='PercentageGaps', legend=True, cax = cax, cmap = "Reds")
+        geodatacond.plot(ax=ax, color='black', markersize = markersize_map, legend = False)
     
-    crs={'init':crsproj}
-    geometry=[Point(xy) for xy in zip(plotsome.iloc[:,0], plotsome.iloc[:,1])]
-    geodata=gpd.GeoDataFrame(plotsome,crs=crs, geometry=geometry)
-    geodatacond = geodata
-
-    # The conversiojn is needed due to the projection of the basemap:
-    geodatacond = geodatacond.to_crs(epsg=3857)
-
-    # Plot the figure and set size:
-    fig, ax = plt.subplots(figsize = figsizeproj)
-
-    #Organizing the legend:
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size="5%", pad=0.1)
-
-    #Ploting:
-    #geodatacond.plot(ax=ax, column='PercentageGaps', legend=True, cax = cax, cmap = "Reds")
-    geodatacond.plot(ax=ax, cmap = "spring")
-
-    if showcodes == True:
-        geodatacond["Code"] = geodatacond.index
-        geodatacond.plot(column = 'Code',ax=ax);
-        for x, y, label in zip(geodatacond.geometry.x, geodatacond.geometry.y, geodatacond.index):
-            ax.annotate(label, xy=(x, y), xytext=(1, 1), textcoords="offset points")
-        plt.rcParams.update({'font.size': 12})
+        if showcodes == True:
+            geodatacond["Code"] = geodatacond.index
+            geodatacond.plot(column = 'Code',ax=ax);
+            for x, y, label in zip(geodatacond.geometry.x, geodatacond.geometry.y, geodatacond.index):
+                ax.annotate(label, xy=(x, y), xytext=(1, 1), textcoords="offset points")
+            plt.rcParams.update({'font.size': 12})
+    
+        else:
+            pass
+    
+        cx.add_basemap(ax)
     
     else:
+        
+        crs={'init':crsproj}
+        geometry=[Point(xy) for xy in zip(plotsome.iloc[:,0], plotsome.iloc[:,1])]
+        geodata=gpd.GeoDataFrame(plotsome,crs=crs, geometry=geometry)
+        geodatacond = geodata
+
+        # Plot the figure and set size:
+        fig, ax = plt.subplots(figsize = figsizeproj)
+
+        #Ploting:
+        
+        world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
+        world.plot(ax = ax, color='white', edgecolor='black')
+        
+        #geodatacond.plot(ax=ax, column='PercentageGaps', legend=True, cax = cax, cmap = "Reds")
+        geodatacond.plot(ax=ax, color='black', markersize = markersize_map, legend = False)
+    
+        if showcodes == True:
+            geodatacond["Code"] = geodatacond.index
+            geodatacond.plot(column = 'Code',ax=ax);
+            for x, y, label in zip(geodatacond.geometry.x, geodatacond.geometry.y, geodatacond.index):
+                ax.annotate(label, xy=(x, y), xytext=(1, 1), textcoords="offset points")
+            plt.rcParams.update({'font.size': 12})
+    
+        else:
+            pass
+        
+        if set_map_limits == False:
+            minx, miny, maxx, maxy = geodatacond.total_bounds
+        
+        else:
+            pass
+        
+        ax.set_xlim(minx, maxx)
+        ax.set_ylim(miny, maxy)
+    
+    # Plot the north arrow:
+    if north_arrow == True:
+        x, y, arrow_length = 0.025, 0.125, 0.1
+        
+        ax.annotate('N', xy=(x, y), xytext=(x, y-arrow_length),
+        arrowprops=dict(facecolor='black', width=5, headwidth=15),
+        ha='center', va='center', fontsize=18,
+        xycoords=ax.transAxes)
+    else:
         pass
-    
-    
-    
-    cx.add_basemap(ax)
     
 #%% #### 2. Define a function for plot several time-series in a single plot:
 
@@ -86,7 +131,7 @@ def plotpoints(plotsome: pd.pandas.core.frame.DataFrame, crsproj = 'epsg:4326', 
 def plottimeseries(numr, numc, datatoplot: pd.pandas.core.frame.DataFrame, setylim = False, ymin = 0, ymax = 1, figsizeproj = (18, 11),
                    colorgraph = "blue", linewidthproj = 0.5, linestyleproj = "-",  ylabelplot = "P (mm)",
                    datestart = datetime.date(1981, 6, 1), dateend = datetime.date(2021, 12, 31),
-                   setnumberofintervals = False, numberintervals = 2):
+                   setnumberofintervals = False, numberintervals = 2, fontsize_plot = 8):
     
     """
     Inputs
@@ -150,10 +195,10 @@ def plottimeseries(numr, numc, datatoplot: pd.pandas.core.frame.DataFrame, setyl
     
         i = i + 1
 
-    plt.rcParams.update({'font.size': 8})
+    plt.rcParams.update({'font.size': fontsize_plot})
     plt.tight_layout()
     
-    return plt.show()
+    return plt
     
 #%% 3. Define a function for plot several box-plots in a single plot:
 
@@ -395,7 +440,9 @@ def summarygaps(df: pd.pandas.core.frame.DataFrame, coordsdf: pd.pandas.core.fra
     return percerrorsdf
 
 #%% 7. Plot the data gaps spatially (this function receives as input the output from function (6)):
-def plotgaps(summarygapsstations: pd.pandas.core.frame.DataFrame, crsproj = 'epsg:4326', backmapproj = True, figsizeproj = (15, 30), cmapproj = "Reds"):
+def plotgaps(summarygapsstations: pd.pandas.core.frame.DataFrame, crsproj = 'epsg:4326', 
+             backmapproj = True, figsizeproj = (15, 30), cmapproj = "Reds",
+             legend_title = "Percentage of gaps (%)", legend_orientation = "vertical"):
     """
     Inputs
     ------------------
@@ -428,7 +475,9 @@ def plotgaps(summarygapsstations: pd.pandas.core.frame.DataFrame, crsproj = 'eps
         cax = divider.append_axes("right", size="5%", pad=0.1)
 
         #Ploting:
-        geodatacond.plot(ax=ax, column='PercentageGaps', legend=True, cax = cax, cmap = "Reds")
+        geodatacond.plot(ax=ax, column='PercentageGaps', legend=True, cax = cax, cmap = "Reds", 
+                         legend_kwds={'label': legend_title,
+                        'orientation': legend_orientation})
         cx.add_basemap(ax)
         
         
@@ -446,7 +495,184 @@ def plotgaps(summarygapsstations: pd.pandas.core.frame.DataFrame, crsproj = 'eps
         cax = divider.append_axes("right", size="5%", pad=0.1)
         
         #Ploting:
-        geodatacond.plot(ax=ax, column='PercentageGaps', legend=True, cax = cax, cmap = cmapproj)   
+        geodatacond.plot(ax=ax, column='PercentageGaps', legend=True, cax = cax, cmap = cmapproj, 
+                         legend_kwds={'label': legend_title,
+                        'orientation': legend_orientation})
             
     
-    return plt.show()
+    return plt
+#%% 8. Plot the data gaps spatially - version 2 (this function receives as input the output from function (6)):
+
+def plotgapsmap(summarygapsstations: pd.pandas.core.frame.DataFrame, crsproj = 'epsg:4326', 
+             backmapproj = True, figsizeproj = (20, 100), 
+             cmapproj = "Reds", pad_map = -0.01, markersize_map = 5, linewidth_marker = 0.1,
+             legend_title = "Percentage of gaps (%)", legend_orientation = "vertical",
+             set_map_limits = False, minx = 0, miny = 0, maxx = 1, maxy = 1,
+             north_arrow = True):
+    
+    """
+    Inputs
+    ------------------
+    summarygapsstations: dataset[y x 4]: 
+        The same dataframe output from the fillinggaps.summarygaps function.
+    
+    Returns
+    --------------------
+    plt.plot: The output is a plt.plot with the points spatially distributed in the area, and with a legend bar 
+        showing the percentage of gaps (from 1 to 100). A background map can be also shown if your coordinate system 
+        "crsproj" is set to 'epsg:4326'.
+        
+    """
+    if backmapproj == True:
+        
+        
+        crs = {'init': crsproj}
+        geometry = [Point(xy) for xy in zip(summarygapsstations["CoordX"], summarygapsstations["CoordY"])]
+        geodata=gpd.GeoDataFrame(summarygapsstations,crs=crs, geometry=geometry)
+        geodatacond = geodata
+
+        # The conversiojn is needed due to the projection of the basemap:
+        geodatacond = geodatacond.to_crs(epsg=3857)
+
+        # Plot the figure and set size:
+        fig, ax = plt.subplots(figsize = figsizeproj)
+
+        #Organizing the legend:
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="1%", pad = pad_map)
+
+        #Ploting:
+        geodatacond.plot(ax=ax, column='PercentageGaps', legend=True, cax = cax, cmap = "Reds", 
+                         legend_kwds={'label': legend_title,
+                        'orientation': legend_orientation}, markersize = markersize_map,
+                        edgecolor="black", linewidth= linewidth_marker)
+        cx.add_basemap(ax)
+        
+        if set_map_limits == False:
+            pass
+        
+        else:
+            ax.set_xlim(minx, maxx)
+            ax.set_ylim(miny, maxy)  
+        
+    else:
+        crs = {'init': crsproj}
+        geometry = [Point(xy) for xy in zip(summarygapsstations["CoordX"], summarygapsstations["CoordY"])]
+        geodata=gpd.GeoDataFrame(summarygapsstations,crs=crs, geometry=geometry)
+        geodatacond = geodata
+
+        # Plot the figure and set size:
+        fig, ax = plt.subplots(figsize = figsizeproj)
+
+        #Organizing the legend:
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="1%", pad= pad_map)
+        
+        #Ploting:
+        world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
+        world.plot(ax = ax, color='white', edgecolor='black')
+        
+        geodatacond.plot(ax=ax, column='PercentageGaps', legend=True, cax = cax, cmap = cmapproj, 
+                         legend_kwds={'label': legend_title,
+                        'orientation': legend_orientation},
+                         markersize = markersize_map,
+                         edgecolor="black", linewidth= linewidth_marker)
+        
+        if set_map_limits == False:
+            minx, miny, maxx, maxy = geodatacond.total_bounds
+        
+        else:
+            pass
+        
+        ax.set_xlim(minx, maxx)
+        ax.set_ylim(miny, maxy)
+    
+    # Plot the north arrow:
+    if north_arrow == True:
+        x, y, arrow_length = 0.025, 0.125, 0.1
+        
+        ax.annotate('N', xy=(x, y), xytext=(x, y-arrow_length),
+        arrowprops=dict(facecolor='black', width=5, headwidth=15),
+        ha='center', va='center', fontsize=18,
+        xycoords=ax.transAxes)
+    else:
+        pass  
+
+        # This part is for the scale bar:
+        #from matplotlib_scalebar.scalebar import ScaleBar
+
+        #from shapely.geometry.point import Point as Point2
+
+        #points = gpd.GeoSeries([Point(-74.20, 40.5), Point(-74.5, 40.5)], crs=4326)  # Geographic WGS 84 - degrees
+        #points = points.to_crs(32619) # Projected WGS 84 - meters
+        
+        #distance_meters = points[0].distance(points[1])
+
+        #ax.add_artist(ScaleBar(distance_meters, dimension="si-length", units="km"))
+        
+   
+    
+    # This part can be added if you want to show a legend for the proportion in the circle sizes:
+    #import matplotlib.lines as mlines
+    
+    # some bins to indicate size in legend
+    #bins_aux = [0, 1000, 10000, 100000]
+    #labels_aux = ["Catchment area (km2)", "0 - 1,000", "1,000 - 10,000", ">10,000" ]
+    #_, bins = pd.cut(markersize_map, bins=bins_aux, precision=0, retbins=True)
+    ## create second legend
+    #ax.add_artist(
+    #    ax.legend(
+    #        handles=[
+    #            mlines.Line2D(
+    #                [],
+    #                [],
+    #                color="white",
+    #                lw=0,
+    #                marker="o",
+    #                markersize = np.sqrt(b/100),
+    #                markeredgewidth=0,
+    #                label = labels_aux[i],
+    #            )
+    #            for i, b in enumerate(bins)
+    #        ],
+    #        #loc=4,
+    #    fontsize=12, labelspacing = 2, frameon = False)
+    #)
+        
+    return plt
+
+#%% 9. Plot the Gannt chart of our time-series:
+# If you are trying to plot more than 50 points at once maybe the visualization will not be the best. 
+
+def plotganntchart(timeseriesfinal_gantt: pd.pandas.core.frame.DataFrame, figsize_chart = (40, 20), 
+             color_chart = "blue", fontsize_chart = 12, facecolor_chart = "white"):
+    
+    """
+    Inputs
+    ------------------
+    summarygapsstations: dataset[y x 4]: 
+        The same dataframe output from the fillinggaps.summarygaps function.
+    
+    Returns
+    --------------------
+    plt.plot: The output is a plt.plot with the points spatially distributed in the area, and with a legend bar 
+        showing the percentage of gaps (from 1 to 100). A background map can be also shown if your coordinate system 
+        "crsproj" is set to 'epsg:4326'.
+        
+    """
+    new_rows = [timeseriesfinal_gantt[s].where(timeseriesfinal_gantt[s].isna(), i) for i, s in enumerate(timeseriesfinal_gantt, 1)]
+    # To increase spacing between lines add a number to i, eg. below:
+    # [df[s].where(df[s].isna(), i+3) for i, s in enumerate(df, 1)]
+    new_df = pd.DataFrame(new_rows)
+
+    ### Plotting ###
+
+    fig, ax = plt.subplots() # Create axes object to pass to pandas df.plot()
+    ax = new_df.transpose().plot(figsize = figsize_chart, ax = ax, legend=False, fontsize = fontsize_chart, color = color_chart)
+    list_of_sites = new_df.transpose().columns.to_list() # For y tick labels
+    x_tick_location = np.arange(1.0, len(new_df) + 1, 1.0) # For y tick positions
+    ax.set_yticks(x_tick_location) # Place ticks in correct positions
+    ax.set_yticklabels(list_of_sites) # Update labels to site names  
+    ax.set_facecolor(facecolor_chart)
+    
+    return plt

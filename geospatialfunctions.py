@@ -28,7 +28,7 @@ warnings.simplefilter(action='ignore', category=Warning)
 # and a background map in background.
 
 def plotpointsmap(plotsome: pd.pandas.core.frame.DataFrame, crsproj = 'epsg:4326', backmapproj = True,
-               showcodes = False, figsizeproj = (15, 30), markersize_map = 3, north_arrow = True, set_map_limits = False,
+               showcodes = False, figsizeproj = (15, 30), markersize_map = 3, colorpoints = 'black', north_arrow = True, set_map_limits = False,
                  minx = 0, miny = 0, maxx = 1, maxy = 1):
     """
     Inputs
@@ -61,7 +61,7 @@ def plotpointsmap(plotsome: pd.pandas.core.frame.DataFrame, crsproj = 'epsg:4326
 
         #Ploting:
         #geodatacond.plot(ax=ax, column='PercentageGaps', legend=True, cax = cax, cmap = "Reds")
-        geodatacond.plot(ax=ax, color='black', markersize = markersize_map, legend = False)
+        geodatacond.plot(ax=ax, color = colorpoints, markersize = markersize_map, legend = False)
     
         if showcodes == True:
             geodatacond["Code"] = geodatacond.index
@@ -91,7 +91,7 @@ def plotpointsmap(plotsome: pd.pandas.core.frame.DataFrame, crsproj = 'epsg:4326
         world.plot(ax = ax, color='white', edgecolor='black')
         
         #geodatacond.plot(ax=ax, column='PercentageGaps', legend=True, cax = cax, cmap = "Reds")
-        geodatacond.plot(ax=ax, color='black', markersize = markersize_map, legend = False)
+        geodatacond.plot(ax=ax, color = colorpoints, markersize = markersize_map, legend = False)
     
         if showcodes == True:
             geodatacond["Code"] = geodatacond.index
@@ -122,6 +122,8 @@ def plotpointsmap(plotsome: pd.pandas.core.frame.DataFrame, crsproj = 'epsg:4326
         xycoords=ax.transAxes)
     else:
         pass
+   
+    return fig, ax
     
 #%% #### 2. Define a function for plot several time-series in a single plot:
 
@@ -198,7 +200,7 @@ def plottimeseries(numr, numc, datatoplot: pd.pandas.core.frame.DataFrame, setyl
     plt.rcParams.update({'font.size': fontsize_plot})
     plt.tight_layout()
     
-    return plt
+    return fig, axs
     
 #%% 3. Define a function for plot several box-plots in a single plot:
 
@@ -211,7 +213,9 @@ def plottimeseries(numr, numc, datatoplot: pd.pandas.core.frame.DataFrame, setyl
 
 
 def plotboxplots(numr, numc, datatoplot: pd.pandas.core.frame.DataFrame, setylim = False, 
-                 ymin = 0, ymax = 1, figsizeproj = (18, 11), ylabelplot = "P (mm)"):
+                 ymin = 0, ymax = 1, figsizeproj = (18, 11), ylabelplot = "P (mm)", 
+                 Cluster = "Cluster",Descriptor = "Descriptor", 
+                 font_size_plot = {'font.size': 12}):
     
     """
     Inputs
@@ -234,9 +238,9 @@ def plotboxplots(numr, numc, datatoplot: pd.pandas.core.frame.DataFrame, setylim
 
     i = 0
     
-    for col in datatoplot.Cluster.unique():
+    for col in datatoplot[Cluster].unique():
     
-        plot_data = datatoplot[datatoplot["Cluster"] == col].loc[:,"max"]
+        plot_data = datatoplot[datatoplot[Cluster] == col].loc[:,Descriptor]
     
         name = col
         
@@ -248,10 +252,13 @@ def plotboxplots(numr, numc, datatoplot: pd.pandas.core.frame.DataFrame, setylim
         rowauxs = [*range(num_rows)] * num_cols
     
         colaux, rowaux = colauxs[i], rowauxs[i]
-    
+        
+        # Here we can plot some text in our boxplot plots: 
+        text_to_plot = "Number: " + str(len(plot_data))
         axs[rowaux,colaux].boxplot(plot_data)
         axs[rowaux,colaux].set_title(name, loc='left')
-        
+        axs[rowaux,colaux].text(0.25, 0.90, text_to_plot, horizontalalignment='center', 
+                                verticalalignment='center', transform= axs[rowaux,colaux].transAxes)
         
         if setylim == True:
             axs[rowaux,colaux].set_ylim(ymin, ymax)
@@ -260,13 +267,14 @@ def plotboxplots(numr, numc, datatoplot: pd.pandas.core.frame.DataFrame, setylim
         
         if colaux == 0:
             axs[rowaux,colaux].set_ylabel(ylabelplot)
-    
+        
+        
         i = i + 1
 
-    plt.rcParams.update({'font.size': 8})
+    plt.rcParams.update(font_size_plot)
     plt.tight_layout()
 
-    return plt.show()
+    return fig, axs
 
 #%% 4. Make a df.describe considering a cluster:
 
@@ -500,7 +508,7 @@ def plotgaps(summarygapsstations: pd.pandas.core.frame.DataFrame, crsproj = 'eps
                         'orientation': legend_orientation})
             
     
-    return plt
+    return fig, ax
 #%% 8. Plot the data gaps spatially - version 2 (this function receives as input the output from function (6)):
 
 def plotgapsmap(summarygapsstations: pd.pandas.core.frame.DataFrame, crsproj = 'epsg:4326', 
@@ -542,7 +550,8 @@ def plotgapsmap(summarygapsstations: pd.pandas.core.frame.DataFrame, crsproj = '
         cax = divider.append_axes("right", size="1%", pad = pad_map)
 
         #Ploting:
-        geodatacond.plot(ax=ax, column='PercentageGaps', legend=True, cax = cax, cmap = "Reds", 
+        geodatacond.plot(ax=ax, column='PercentageGaps', legend=True, cax = cax, cmap = "Reds",
+                         vmin=0, vmax=100, 
                          legend_kwds={'label': legend_title,
                         'orientation': legend_orientation}, markersize = markersize_map,
                         edgecolor="black", linewidth= linewidth_marker)
@@ -572,7 +581,8 @@ def plotgapsmap(summarygapsstations: pd.pandas.core.frame.DataFrame, crsproj = '
         world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
         world.plot(ax = ax, color='white', edgecolor='black')
         
-        geodatacond.plot(ax=ax, column='PercentageGaps', legend=True, cax = cax, cmap = cmapproj, 
+        geodatacond.plot(ax=ax, column='PercentageGaps', legend=True, cax = cax, cmap = cmapproj,
+                         vmin=0, vmax=100,
                          legend_kwds={'label': legend_title,
                         'orientation': legend_orientation},
                          markersize = markersize_map,
@@ -639,13 +649,15 @@ def plotgapsmap(summarygapsstations: pd.pandas.core.frame.DataFrame, crsproj = '
     #    fontsize=12, labelspacing = 2, frameon = False)
     #)
         
-    return plt
+    return fig, ax
 
 #%% 9. Plot the Gannt chart of our time-series:
 # If you are trying to plot more than 50 points at once maybe the visualization will not be the best. 
 
 def plotganntchart(timeseriesfinal_gantt: pd.pandas.core.frame.DataFrame, figsize_chart = (40, 20), 
-             color_chart = "blue", fontsize_chart = 12, facecolor_chart = "white"):
+                   showcodes = False,
+                   color_chart = "blue", fontsize_chart = 12, facecolor_chart = "white", 
+                   title_chart = "Title"):
     
     """
     Inputs
@@ -672,7 +684,172 @@ def plotganntchart(timeseriesfinal_gantt: pd.pandas.core.frame.DataFrame, figsiz
     list_of_sites = new_df.transpose().columns.to_list() # For y tick labels
     x_tick_location = np.arange(1.0, len(new_df) + 1, 1.0) # For y tick positions
     ax.set_yticks(x_tick_location) # Place ticks in correct positions
-    ax.set_yticklabels(list_of_sites) # Update labels to site names  
+    
+    ax.set_title(title_chart)
     ax.set_facecolor(facecolor_chart)
     
-    return plt
+    ax.set_yticklabels("")
+    
+    if showcodes == True:
+        ax.set_yticklabels(list_of_sites) # Update labels to site names
+    
+    
+    return fig, ax
+
+
+#%% 10. Define a function for plot several Gannt-plots in a single plot:
+
+# This function is useful for the plot of several boxplots from a big time-series
+# Initiall this function is used in a dataframe of 1898 rain gauges being each labeled with an unique 
+# index (Code) and categorized per Federation State (or Cluster). Moreover, the dataframe has a column of
+# maximum precipitation per code, which will be used for the boxplots.
+# Therefore, the boxplots will be plot per State (and not per Code). 
+# For different analysis the code might as well need to be adapted.
+
+
+def plotganntplots(numr, numc, timeseriesfinal_used: pd.pandas.core.frame.DataFrame, summarygapsstations:pd.pandas.core.frame.DataFrame,
+                   setylim = False,  ymin = 0, ymax = 100, figsize_chart = (40, 20), ylabelplot = "P (mm)", 
+                   Cluster = "Cluster", Descriptor = "Descriptor", 
+                   color_chart = "blue", fontsize_chart = 12, facecolor_chart = "white", title_chart = "Title"):
+    
+    """
+    Inputs
+    ------------------
+    numr = Number of rows of your figure;
+    numc = Numer of columns of your figure;
+    datatoplot: dataframe[Index = Codes; columns = [Cluster, Statistical descriptor]]: 
+
+    setylim = It is used when one needs to set a common y-lim for the graphs;
+    ymin and ymax = only used when "setylim" is "True";
+    figsizeproj = size of the generated figure in inches;
+    ylabelplot = label of the time-series (assuming all time series are in the same units and type);
+    
+    Returns
+    --------------------
+    plt.plot: Boxplot. 
+        
+    """
+    countries = summarygapsstations.Country.unique().tolist() 
+        
+    fig, axs = plt.subplots(int(numr),int(numc), figsize = figsize_chart)
+
+    i = 0
+    
+    for country in countries:
+        
+        name = country
+        title_chart = country
+        
+        num_rows = axs.shape[0]
+        num_cols = axs.shape[1]
+        
+        colauxs = [i for i in range(num_cols) for _ in range(num_rows)] 
+        rowauxs = [*range(num_rows)] * num_cols
+    
+        colaux, rowaux = colauxs[i], rowauxs[i]
+        
+        
+        idcondition = summarygapsstations[summarygapsstations.Country == country].index.tolist()
+        timeseriesfinal_gantt = timeseriesfinal_used.loc["1981":"2021", idcondition]
+    
+        new_rows = [timeseriesfinal_gantt[s].where(timeseriesfinal_gantt[s].isna(), i) for i, s in enumerate(timeseriesfinal_gantt, 1)]
+        # To increase spacing between lines add a number to i, eg. below:
+        # [df[s].where(df[s].isna(), i+3) for i, s in enumerate(df, 1)]
+        new_df = pd.DataFrame(new_rows)
+
+        ### Plotting ###
+        ax = new_df.transpose().plot(figsize = figsize_chart, ax = axs[rowaux,colaux], legend=False, fontsize = fontsize_chart, 
+                                     color = color_chart)
+        list_of_sites = new_df.transpose().columns.to_list() # For y tick labels
+        x_tick_location = np.arange(1.0, len(new_df) + 1, 1.0) # For y tick positions
+        axs[rowaux,colaux].set_yticks(x_tick_location) # Place ticks in correct positions
+        axs[rowaux,colaux].set_yticklabels("") # Update labels to site names
+        axs[rowaux,colaux].set_title(title_chart)
+        axs[rowaux,colaux].set_facecolor(facecolor_chart)
+    
+        i = i + 1
+
+    plt.rcParams.update({'font.size': 12})
+    plt.tight_layout()
+
+    return fig, axs
+
+
+
+#%% 11. Plot histograms:
+
+# This function is useful for the plot of several boxplots from a big time-series
+# Initiall this function is used in a dataframe of 1898 rain gauges being each labeled with an unique 
+# index (Code) and categorized per Federation State (or Cluster). Moreover, the dataframe has a column of
+# maximum precipitation per code, which will be used for the boxplots.
+# Therefore, the boxplots will be plot per State (and not per Code). 
+# For different analysis the code might as well need to be adapted.
+
+
+def plothistograms(numr, numc, datatoplot: pd.pandas.core.frame.DataFrame, setylim = False, 
+                 ymin = 0, ymax = 1, figsizeproj = (18, 11), ylabelplot = "P (mm)", 
+                 Cluster = "Cluster",Descriptor = "Descriptor", 
+                 font_size_plot = {'font.size': 12}):
+    
+    """
+    Inputs
+    ------------------
+    numr = Number of rows of your figure;
+    numc = Numer of columns of your figure;
+    datatoplot: dataframe[Index = Codes; columns = [Cluster, Statistical descriptor]]: 
+
+    setylim = It is used when one needs to set a common y-lim for the graphs;
+    ymin and ymax = only used when "setylim" is "True";
+    figsizeproj = size of the generated figure in inches;
+    ylabelplot = label of the time-series (assuming all time series are in the same units and type);
+    
+    Returns
+    --------------------
+    plt.plot: Boxplot. 
+        
+    """   
+    fig, axs = plt.subplots(int(numr),int(numc), figsize = figsizeproj)
+
+    i = 0
+    
+    for col in datatoplot[Cluster].unique():
+    
+        plot_data = datatoplot[datatoplot[Cluster] == col].loc[:,Descriptor]
+    
+        name = col
+        
+        num_rows = axs.shape[0]
+        num_cols = axs.shape[1]
+
+        
+        colauxs = [i for i in range(num_cols) for _ in range(num_rows)] 
+        rowauxs = [*range(num_rows)] * num_cols
+    
+        colaux, rowaux = colauxs[i], rowauxs[i]
+        
+        # Here we can plot some text in our boxplot plots: 
+        text_to_plot = "Number: " + str(len(plot_data))
+        axs[rowaux,colaux].hist(plot_data)
+        axs[rowaux,colaux].set_title(name, loc='left')
+        axs[rowaux,colaux].text(0.75, 0.90, text_to_plot, horizontalalignment='center', 
+                                verticalalignment='center', transform= axs[rowaux,colaux].transAxes)
+        
+        axs[rowaux,colaux].set_xlim(0, 100)
+        
+        
+        if setylim == True:
+            axs[rowaux,colaux].set_ylim(ymin, ymax)
+        else:
+            pass
+        
+        if colaux == 0:
+            axs[rowaux,colaux].set_ylabel(ylabelplot)
+        
+        
+        i = i + 1
+
+    plt.rcParams.update(font_size_plot)
+    plt.tight_layout()
+
+    return fig, axs
+    

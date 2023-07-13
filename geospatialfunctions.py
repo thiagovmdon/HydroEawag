@@ -709,7 +709,7 @@ def plotganntchart(timeseriesfinal_gantt: pd.pandas.core.frame.DataFrame, figsiz
 
 def plotganntplots(numr, numc, timeseriesfinal_used: pd.pandas.core.frame.DataFrame, summarygapsstations:pd.pandas.core.frame.DataFrame,
                    setylim = False,  ymin = 0, ymax = 100, figsize_chart = (40, 20), ylabelplot = "P (mm)", 
-                   Cluster = "Cluster", Descriptor = "Descriptor", 
+                   Cluster = "Cluster", Descriptor = "Descriptor", time_range_year_ini = "1981", time_range_year_fin = "2021", 
                    color_chart = "blue", fontsize_chart = 12, facecolor_chart = "white", title_chart = "Title"):
     
     """
@@ -750,7 +750,7 @@ def plotganntplots(numr, numc, timeseriesfinal_used: pd.pandas.core.frame.DataFr
         
         
         idcondition = summarygapsstations[summarygapsstations.Country == country].index.tolist()
-        timeseriesfinal_gantt = timeseriesfinal_used.loc["1981":"2021", idcondition]
+        timeseriesfinal_gantt = timeseriesfinal_used.loc[time_range_year_ini:time_range_year_fin, idcondition]
     
         new_rows = [timeseriesfinal_gantt[s].where(timeseriesfinal_gantt[s].isna(), i) for i, s in enumerate(timeseriesfinal_gantt, 1)]
         # To increase spacing between lines add a number to i, eg. below:
@@ -852,4 +852,40 @@ def plothistograms(numr, numc, datatoplot: pd.pandas.core.frame.DataFrame, setyl
     plt.tight_layout()
 
     return fig, axs
+
+#%% 12. Define a new code for the columns of a dataframe:
+
+# This function is useful for the quick creation of a new unique code for a network and to rename their respective time-series columns 
+# in an easy and straight forward way
+
+
+def new_code_function(network_country_input, timeseries_country_input, name_col_in_network = "code", country = "PT"):
+    # This simple function just automatizes the process of defining a new code for our time_series and network:
+    
+    # name_col_in_network is the name of the column present in the network that matches the columns present in the timeseries
+    
+    # First we make a copy of our dataframe:
+    network_country = network_country_input.copy()
+    timeseries_country = timeseries_country_input.copy()
+    
+    # Now we create a new code column:
+    network_country["new_code"] = np.nan
+    
+    # Now we define a range (1 to ...):
+    network_country.loc[:, 'new_code'] = range(1, len(network_country) + 1)
+    # Now we convert this range to int to get rid of any decimals:
+    network_country.loc[:, 'new_code'] = network_country.loc[:, 'new_code'].astype(int)
+    # Now we fill so we can have tge same number of elements regardeles of the number:
+    network_country.new_code = network_country.new_code.astype(str).str.zfill(5)
+    # And here we set the country code before the new code number:
+    network_country.new_code = country + network_country.new_code
+    
+    # Now to change the timeseries columns:
+    # Create a dictionary mapping codes to new column names
+    code_to_column = dict(zip(network_country.loc[:, name_col_in_network] , network_country.loc[:, 'new_code'] ))
+
+    # Method 1: Using map()
+    timeseries_country.columns = timeseries_country.columns.map(code_to_column)
+
+    return network_country, timeseries_country
     

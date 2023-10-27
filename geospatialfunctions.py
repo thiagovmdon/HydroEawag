@@ -975,42 +975,42 @@ def longest_gap_measurements(timeseries: pd.DataFrame):
 #%% 15. Plot a map of points with color-coded categories based on measurement data.
 ### For example, you can plot the number of years with measurement in a color based map. 
 
-def plot_num_measurementsmap(plotsome: pd.pandas.core.frame.DataFrame, xcoords="lon", ycoords="lat", column_labels = "num_yearly_complete",
-                             crsproj='epsg:4326', showcodes=False, figsizeproj=(15, 30), markersize_map=3, north_arrow=True, 
-                             set_map_limits=False, minx=0, miny=0, maxx=1, maxy=1, color_categories=None, color_mapping=None,
-                             legend_title=None, legend_labels=None, legend_loc='upper left'):
+def plot_num_measurementsmap_subplot(ax, plotsome: pd.DataFrame, xcoords="lon", ycoords="lat", column_labels="num_yearly_complete",
+                                     crsproj='epsg:4326', showcodes=False, markersize_map=3, north_arrow=True, 
+                                     set_map_limits=False, minx=0, miny=0, maxx=1, maxy=1, color_categories=None, color_mapping=None,
+                                     legend_title=None, legend_labels=None, legend_loc='upper left', show_legend = True, 
+                                     legend_outside=True, legend_bbox_to_anchor=(0.5, 1)):  # Add legend_outside and legend_bbox_to_anchor parameters:
     """
-    Inputs
-    ------------------
-    plotsome: dataset[Index = Code; columns = [Longitude, Latitude, num_years]]:
-        dataframe with the codes as the index, and with at least three columns in the order of
-        "Longitude-X", "Latitude-y", and "num_years" (in EPSG: 4326 as the first and second columns.
+    Plot data on a subplot with additional options.
 
-    showcodes:
-        By default it is set as "False". If "True" it will show the codes from the index.
+    Parameters:
+        ax (matplotlib.axes.Axes): The subplot where the data will be plotted.
+        plotsome (pd.DataFrame): The data to be plotted.
+        xcoords (str): The name of the column containing x-coordinates.
+        ycoords (str): The name of the column containing y-coordinates.
+        column_labels (str): The name of the column containing data for coloring.
+        crsproj (str): The coordinate reference system (CRS) for the data.
+        showcodes (bool): Whether to show data labels.
+        markersize_map (int): Size of the markers.
+        north_arrow (bool): Whether to include a north arrow.
+        set_map_limits (bool): Whether to set specific map limits.
+        minx (float): Minimum x-axis limit.
+        miny (float): Minimum y-axis limit.
+        maxx (float): Maximum x-axis limit.
+        maxy (float): Maximum y-axis limit.
+        color_categories (list): List of color categories for data bins.
+        color_mapping (dict): Mapping of color categories to colors.
+        legend_title (str): Title for the legend.
+        legend_labels (list): Labels for the legend items.
+        legend_loc (str): Location of the legend.
+        show_legend (bool): Whether to display the legend.
+        legend_outside (bool): Whether to place the legend outside the plot.
+        legend_bbox_to_anchor (tuple): Position of the legend (x, y).
 
-    color_categories:
-        List of tuples defining color categories and their corresponding ranges. Example:
-        [(0, 5), (5, 20), (20, 40), (40, 80), (80, np.inf)]
-
-    color_mapping:
-        Dictionary mapping color categories to specific colors. Example:
-        {'0-5': 'blue', '5-20': 'green', '20-40': 'yellow', '40-80': 'orange', '80-inf': 'red'}
-
-    legend_title:
-        Title of the legend.
-
-    legend_labels:
-        Labels for each category in the legend.
-
-    legend_loc:
-        Location of the legend. Defaults to 'upper left'.
-
-    Returns
-    --------------------
-    plt.plot: The output is a plt.plot with the points spatially distributed in the area.
+    Returns:
+        None
     """
-
+    # Prepare the data for plotting
     crs = {'init': crsproj}
     geometry = plotsome.apply(lambda row: Point(row[xcoords], row[ycoords]), axis=1)
     geodata = gpd.GeoDataFrame(plotsome, crs=crs, geometry=geometry)
@@ -1020,9 +1020,6 @@ def plot_num_measurementsmap(plotsome: pd.pandas.core.frame.DataFrame, xcoords="
         geodatacond['color_category'] = pd.cut(geodatacond[column_labels], bins=[c[0] for c in color_categories] + [np.inf], labels=[f'{c[0]}-{c[1]}' for c in color_categories])
     else:
         raise ValueError("Both color_categories and color_mapping must be provided.")
-
-    # Plot the figure and set size:
-    fig, ax = plt.subplots(figsize=figsizeproj)
 
     # Plotting and legend:
     for category, group in geodatacond.groupby('color_category'):
@@ -1041,21 +1038,126 @@ def plot_num_measurementsmap(plotsome: pd.pandas.core.frame.DataFrame, xcoords="
         ax.set_xlim(minx, maxx)
         ax.set_ylim(miny, maxy)
 
-    # Plot the legend inside the plot
+    # Plot the legend
     if legend_labels is None:
         legend_labels = [f'{c[0]}-{c[1]}' for c in color_categories]
         
-    if legend_title is not None:
-        ax.legend(title=legend_title, labels=legend_labels, loc=legend_loc)
-
+    if show_legend:
+        if legend_outside:
+            legend = ax.legend(title=legend_title, labels=legend_labels, loc='upper left', bbox_to_anchor=legend_bbox_to_anchor,
+                               bbox_transform=ax.transAxes, frameon=False)  # Use bbox_transform to position the legend
+        else:
+            legend = ax.legend(title=legend_title, labels=legend_labels, loc=legend_loc, frameon=False)
+            
+        if legend_outside:
+            ax.add_artist(legend)
+            
     # Plot the north arrow:
     if north_arrow == True:
-        x, y, arrow_length = 0.025, 0.125, 0.1
+        x, y, arrow_length = 0.975, 0.125, 0.1
 
         ax.annotate('N', xy=(x, y), xytext=(x, y - arrow_length),
                     arrowprops=dict(facecolor='black', width=5, headwidth=15),
                     ha='center', va='center', fontsize=18,
+                    xycoords='axes fraction')
+  
+    # Set font family and size using rcParams
+    mpl.rcParams['font.family'] = 'Arial'
+    mpl.rcParams['font.size'] = 18  # You can adjust this value as needed
+
+#%% 16. Plot a map of points in a map (update from ploitpointsmap).
+def plotpointsmapnew(ax, plotsome: pd.pandas.core.frame.DataFrame, xcoords="lon", ycoords="lat", 
+                      crsproj='epsg:4326', showcodes=False, figsizeproj=(15, 30), 
+                      markersize_map=3, colorpoints='black', north_arrow=True, set_map_limits=False,
+                      minx=0, miny=0, maxx=1, maxy=1):
+    """
+    Plots points on a map.
+
+    Parameters:
+    ----------
+    ax : matplotlib.axes._axes.Axes
+        The axes on which to plot the points.
+
+    plotsome : pd.pandas.core.frame.DataFrame
+        Dataframe containing geographical data.
+        Index should be 'Code', and columns should include 'Longitude-X' and 'Latitude-y'.
+
+    xcoords : str, optional
+        Name of the column containing X-coordinates (longitude). Default is "lon".
+
+    ycoords : str, optional
+        Name of the column containing Y-coordinates (latitude). Default is "lat".
+
+    crsproj : str, optional
+        Coordinate reference system. Default is 'epsg:4326'.
+
+    showcodes : bool, optional
+        Whether to show codes from the index. Default is False.
+
+    figsizeproj : tuple, optional
+        Figure size in inches. Default is (15, 30).
+
+    markersize_map : int, optional
+        Size of the markers on the map. Default is 3.
+
+    colorpoints : str, optional
+        Color of the points. Default is 'black'.
+
+    north_arrow : bool, optional
+        Whether to include a north arrow. Default is True.
+
+    set_map_limits : bool, optional
+        Whether to set custom map limits. Default is False.
+
+    minx : float, optional
+        Minimum X-coordinate for map limits. Default is 0.
+
+    miny : float, optional
+        Minimum Y-coordinate for map limits. Default is 0.
+
+    maxx : float, optional
+        Maximum X-coordinate for map limits. Default is 1.
+
+    maxy : float, optional
+        Maximum Y-coordinate for map limits. Default is 1.
+
+    Returns:
+    ----------
+    plt.plot
+        The output is a plt.plot with the points spatially distributed in the area. 
+        A background map can also be shown if your coordinate system "crsproj" is set to 'epsg:4326'.
+    """
+    crs = {'init': crsproj}
+    geometry = plotsome.apply(lambda row: Point(row[xcoords], row[ycoords]), axis=1)
+    geodata = gpd.GeoDataFrame(plotsome, crs=crs, geometry=geometry)
+    geodatacond = geodata
+
+    # Ploting:
+    geodatacond.plot(ax=ax, color=colorpoints, markersize=markersize_map, legend=False)
+
+    if showcodes:
+        geodatacond["Code"] = geodatacond.index
+        geodatacond.plot(column='Code', ax=ax)
+        for x, y, label in zip(geodatacond.geometry.x, geodatacond.geometry.y, geodatacond.index):
+            ax.annotate(label, xy=(x, y), xytext=(1, 1), textcoords="offset points")
+        plt.rcParams.update({'font.size': 12})
+    else:
+        pass
+
+    if not set_map_limits:
+        minx, miny, maxx, maxy = geodatacond.total_bounds
+    else:
+        pass
+
+    ax.set_xlim(minx, maxx)
+    ax.set_ylim(miny, maxy)
+
+    # Plot the north arrow:
+    if north_arrow:
+        x, y, arrow_length = 0.025, 0.125, 0.1
+        ax.annotate('N', xy=(x, y), xytext=(x, y - arrow_length),
+                    arrowprops=dict(facecolor='black', width=5, headwidth=15),
+                    ha='center', va='center', fontsize=18,
                     xycoords=ax.transAxes)
-
-    return fig, ax
-
+    else:
+        pass
